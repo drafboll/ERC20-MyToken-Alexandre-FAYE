@@ -1,39 +1,45 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
-
+// Va permettre d'importer le fichier IERC20
 import "./IERC20.sol";
 
+// Notre contrat MyToken qui respecte le plan de votre exercice
 contract MyToken is IERC20 {
+    // Les infos publiques, qui va servir à ce qui veuelent utiliser
     string public name;
     string public symbol;
     uint8 public decimals;
-    uint256 private _totalSupply;
-    mapping(address => uint256) private _balances;
+    uint256 public _totalSupply;
 
-    mapping(address => mapping(address => uint256)) private _allowances; 
+    // Le tiroir pour savoir qui a quoi
+    // Ce mapping stocke le solde de chaque utilisateur
+    mapping(address => uint256) public _balances;
+    
+    // Il enregistre combien j'autorise une autre adresse à dépenser de mes tokens
+    mapping(address => mapping(address => uint256)) public _allowances; 
     address public owner;
     
-    // pour les bonus (Mint et Burn)
-    event Mint(address indexed to, uint256 value);
-    event Burn(address indexed from, uint256 value);
-    
+    // J'ai mis ça pour bloquer l'accès à certaines fonctions, nous seul pouvons le modifier
     modifier onlyOwner() {
         require(msg.sender == owner, "OWNER_ONLY");
         _;
     }
     
+    // J'initialise le nom et le symbole 
     constructor() {
         name = "AlexandreTOKEN";
         symbol = "WST";
         decimals = 18;
         owner = msg.sender;
         
-        uint256 initialSupply = 5_000_000 * 10**uint256(decimals); 
+        // On calcule les 1 million de tokens avec les 18 décimales
+        uint256 initialSupply = 1_000_000 * 10**uint256(decimals); 
         _totalSupply = initialSupply;
         _balances[msg.sender] = initialSupply;
         emit Transfer(address(0), msg.sender, initialSupply);
     }
     
+    // Fonctions de lecture, ici les focntions ne demande pas de gaz, donc ca ne va aps modifier l'étatd e la bloc chain
     function totalSupply() external view override returns (uint256) {
         return _totalSupply;
     }
@@ -46,26 +52,30 @@ contract MyToken is IERC20 {
         return _allowances[_owner][spender];
     }
     
+    // fonctions de transaction ici coutent du gaz
+    // Sécurité : Faut pas transférer depuis/vers l'adresse 0, et faut avoir assez de sous
     function transfer(address recipient, uint256 amount) external override returns (bool) {
         require(msg.sender != address(0), "TRANSFER_FROM_ZERO");
         require(recipient != address(0), "TRANSFER_TO_ZERO");
         require(_balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE");
-        
+
+        // Je me retire le montant, et je le donne au destinataire
         _balances[msg.sender] -= amount;
         _balances[recipient] += amount;
         emit Transfer(msg.sender, recipient, amount);
         return true;
     }
-    
+    // permet de donner la permission à une autre adresse pour depenser ses tokens pour lui
     function approve(address spender, uint256 amount) external override returns (bool) {
         require(spender != address(0), "APPROVE_TO_ZERO");
-        // CORRECTION : utilise _allowances
+        // utilise _allowances
         _allowances[msg.sender][spender] = amount;
         
         emit Approval(msg.sender, spender, amount);
         return true;
     }
     
+    // Il permet d'exécuter une procuration en autorisant une adresse tierce à envoyer des tokens en tant que owner grace à la focntion approve
     function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
         require(sender != address(0), "TRANSFER_FROM_ZERO");
         require(recipient != address(0), "TRANSFER_TO_ZERO");
@@ -81,27 +91,5 @@ contract MyToken is IERC20 {
         
         emit Transfer(sender, recipient, amount);
         return true;
-    }
-    
-    function mint(uint256 amount) external onlyOwner {
-        require(amount > 0, "AMOUNT_ZERO");
-        _totalSupply += amount;
-        _balances[owner] += amount;
-        emit Mint(owner, amount);
-        emit Transfer(address(0), owner, amount);
-    }
-    
-    function burn(uint256 amount) external {
-        require(amount > 0, "AMOUNT_ZERO");
-        require(_balances[msg.sender] >= amount, "INSUFFICIENT_BALANCE_FOR_BURN");
-        _totalSupply -= amount;
-        _balances[msg.sender] -= amount;
-        emit Burn(msg.sender, amount);
-        emit Transfer(msg.sender, address(0), amount);
-    }
-    
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "INVALID_NEW_OWNER");
-        owner = newOwner;
     }
 }
